@@ -1,7 +1,23 @@
 import React from 'react';
+// const io = require('socket.io-client');
 
-// const SECURE_SERVER_URL="https://35.247.209.203:8080";
-const SERVER_URL = "https://168c5fb1e4ad.ngrok.io";
+const SERVER_URL = "https://libnevis.cloud:8080";
+
+function lookForVideo(elem = document) {
+  for (let child in elem.children) {
+    if (elem.children[child].tagName == 'VIDEO' || elem.children[child].tagName == 'video') {
+      return elem.children[child];
+    }
+    if (elem.children[child].shadowRoot) {
+      let ret_val0 = lookForVideo(elem.children[child].shadowRoot);
+      if (ret_val0) return ret_val0;
+    }
+    let ret_val1 = lookForVideo(elem.children[child]);
+    if (ret_val1) return ret_val1;
+  }
+
+  return false;
+}
 
 class Content extends React.Component {
   constructor(props) {
@@ -16,6 +32,9 @@ class Content extends React.Component {
     this.query_transcript = this.query_transcript.bind(this);
     this.processTranscript = this.processTranscript.bind(this);
     this.create_btn = this.create_btn.bind(this);
+
+    /*this.sock = new io.Socket();
+    this.sock.connect('http://localhost:8080');*/
   }
 
   static get_btn_background() {
@@ -29,7 +48,7 @@ class Content extends React.Component {
   }
 
   create_btn() {
-    let video = this.lookForVideo();
+    let video = lookForVideo();
 
     const recv_media = this.recv_media;
     let transcribeButton = document.createElement("button");
@@ -64,18 +83,20 @@ class Content extends React.Component {
         duration: 200,
         iterations: 1
       });
-      chrome.storage.local.set({ key: video.title }, function () {
-        console.log(video, video.getAttribute("src"));
-        console.log('Value is set to ' + video.title);
-        let vid_src = video.getAttribute("src");
-        if (vid_src === undefined) {
-          vid_src = video.currentSrc;
-        }
-        if (vid_src === undefined) {
-          vid_src = video.src;
-        }
-        recv_media(vid_src);
-      });
+      let vid_src = video.getAttribute("src");
+      if (vid_src === undefined || vid_src == null) {
+        vid_src = video.currentSrc;
+      }
+      if (vid_src === undefined || vid_src == null) {
+        vid_src = video.src;
+      }
+      if (vid_src === undefined || vid_src == null) {
+        vid_src = video.src;
+      }
+      //let sources = document.querySelectorAll('.parent .source');
+      let sources = video.children;
+      console.log("VIDEO: ", video, video.getAttribute("src"), sources);
+      recv_media(vid_src);
       event.preventDefault();
     });
     transcribeButton.classList.add("transcribeButton");
@@ -116,7 +137,7 @@ class Content extends React.Component {
     try {
       let curr_btn = document.getElementsByClassName("transcribeButton");
       video.parentNode.replaceChild(transcribeButton, curr_btn);
-    } catch(err) {
+    } catch (err) {
       video.parentNode.insertBefore(transcribeButton, video);
     }
 
@@ -134,6 +155,7 @@ class Content extends React.Component {
       .then((res) => res.blob())
       .then((blob) => blob.arrayBuffer())
       .then((bytes) => {
+        console.log("Video is ", bytes.length, " bytes.");
         let xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function () {
           if (this.readyState == 4 && this.status == 200) {
@@ -232,7 +254,7 @@ class Content extends React.Component {
   }
 
   processTranscript(response) {
-    let player = this.lookForVideo();
+    let player = lookForVideo();
     console.log("Transcript:", response);
 
     const parsed_response = response;
@@ -314,20 +336,6 @@ class Content extends React.Component {
     this.setState({ currentJob: null });
   }
 
-  lookForVideo() {
-    var videoTags = ["video", "d2l-labs-media-player"];
-    for (let i = 0; i < videoTags.length; i++) {
-      try {
-        if (document.getElementsByTagName(videoTags[i])[0] !== undefined) {
-          return document.getElementsByTagName(videoTags[i])[0];
-        }
-      } catch (err) {
-        console.log(err);
-      }
-    }
-    return false;
-  }
-
   processVideo() {
     chrome.storage.local.remove(["key"], function () {
       var error = chrome.runtime.lastError;
@@ -354,7 +362,6 @@ class Content extends React.Component {
         console.log("key is cleared!");
       });
       //let iter_count = 0;
-      var lookForVideo = this.lookForVideo;
       var processVideo = this.processVideo;
       let interval_ID = setInterval(function () {
         let vid_elem = lookForVideo();
