@@ -5,8 +5,8 @@ import { io } from 'socket.io-client';
 //io.set('transports', ['websocket', 'xhr-polling', 'jsonp-polling', 'htmlfile', 'flashsocket']);
 //io.set('origins', '*:*');
 
-//const SERVER_URL = "https://libnevis.cloud:8080";
-const SERVER_URL = "http://localhost:8080";
+const SERVER_URL = "https://libnevis.cloud:8080";
+//const SERVER_URL = "http://localhost:8080";
 
 function lookForVideo(elem = document) {
   for (let child in elem.children) {
