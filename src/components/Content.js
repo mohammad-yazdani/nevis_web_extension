@@ -1,17 +1,27 @@
 import React from 'react';
-// const io = require('socket.io-client');
+// var io = require("socket.io-client");
+import { io } from 'socket.io-client';
 
-const SERVER_URL = "https://libnevis.cloud:8080";
+//io.set('transports', ['websocket', 'xhr-polling', 'jsonp-polling', 'htmlfile', 'flashsocket']);
+//io.set('origins', '*:*');
+
+//const SERVER_URL = "https://libnevis.cloud:8080";
+const SERVER_URL = "http://localhost:8080";
 
 function lookForVideo(elem = document) {
   for (let child in elem.children) {
-    if (elem.children[child].tagName == 'VIDEO' || elem.children[child].tagName == 'video') {
+    // noinspection JSUnfilteredForInLoop
+    if (elem.children[child].tagName === 'VIDEO' || elem.children[child].tagName === 'video') {
+      // noinspection JSUnfilteredForInLoop
       return elem.children[child];
     }
+    // noinspection JSUnfilteredForInLoop
     if (elem.children[child].shadowRoot) {
+      // noinspection JSUnfilteredForInLoop
       let ret_val0 = lookForVideo(elem.children[child].shadowRoot);
       if (ret_val0) return ret_val0;
     }
+    // noinspection JSUnfilteredForInLoop
     let ret_val1 = lookForVideo(elem.children[child]);
     if (ret_val1) return ret_val1;
   }
@@ -67,11 +77,11 @@ class Content extends React.Component {
     transcribeButton.style.marginLeft = "5px";
     transcribeButton.style.marginTop = "5px";
     transcribeButton.style.position = "absolute";
-    transcribeButton.style.zIndex = 1;
+    transcribeButton.style.zIndex = "1";
 
-    transcribeButton.style.opacity = 0.8;
+    transcribeButton.style.opacity = "0.8";
     transcribeButton.style.animationTimingFunction = "ease-in-out";
-    transcribeButton.style.animation = 0;
+    transcribeButton.style.animation = "0";
     transcribeButton.addEventListener("click", function (event) {
       transcribeButton.animate([
         // keyframes
@@ -110,7 +120,7 @@ class Content extends React.Component {
           .getPropertyValue("opacity"));
         if (opacity < 1) {
           opacity = opacity + 0.1;
-          transcribeButton.style.opacity = opacity;
+          transcribeButton.style.opacity = opacity.toString();
         } else {
           clearInterval(intervalID);
         }
@@ -126,7 +136,7 @@ class Content extends React.Component {
           .getPropertyValue("opacity"));
         if (opacity > 0.8) {
           opacity = opacity - 0.1;
-          transcribeButton.style.opacity = opacity;
+          transcribeButton.style.opacity = opacity.toString();
         } else {
           clearInterval(intervalID);
         }
@@ -135,7 +145,7 @@ class Content extends React.Component {
     });
 
     try {
-      let curr_btn = document.getElementsByClassName("transcribeButton");
+      let curr_btn = document.getElementsByClassName("transcribeButton")[0];
       video.parentNode.replaceChild(transcribeButton, curr_btn);
     } catch (err) {
       video.parentNode.insertBefore(transcribeButton, video);
@@ -145,82 +155,103 @@ class Content extends React.Component {
   }
 
   recv_media(media_path) {
+    // eslint-disable-next-line no-unused-vars
     let create_btn = this.create_btn;
     console.log("Media path: ", media_path);
 
+    // eslint-disable-next-line no-unused-vars
     let setState = this.setState.bind(this);
+    // eslint-disable-next-line no-unused-vars
     let query_transcript = this.query_transcript;
 
     fetch(media_path)
       .then((res) => res.blob())
       .then((blob) => blob.arrayBuffer())
       .then((bytes) => {
-        console.log("Video is ", bytes.length, " bytes.");
-        let xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function () {
-          if (this.readyState == 4 && this.status == 200) {
-            chrome.storage.local.set({ corpus_id: xhttp.responseText }, function () {
-              let response = JSON.parse(xhttp.responseText);
-              setState({ corpus_id: response.corpus_id });
+        console.log(bytes);
 
-              console.log("TRANSCRIBING");
+        let use_ws = false;
+        if (use_ws) {
+          let sock = io('http://127.0.0.1:8080');
+
+          sock.on('connect',function(){
+            console.log("connected");
+            // socket.emit('client_connected', { data:"testsend" } );
+            sock.binaryType = 'arraybuffer';
+            sock.emit('client_connected', bytes);
+          });
+          sock.on('update',function(data){
+            console.log(data);
+          });
+        } else {
+          let xhttp = new XMLHttpRequest();
+          xhttp.onreadystatechange = function () {
+            if (this.readyState === 4 && this.status === 200) {
+              // noinspection JSUnresolvedVariable
+              chrome.storage.local.set({ corpus_id: xhttp.responseText }, function () {
+                let response = JSON.parse(xhttp.responseText);
+                setState({ corpus_id: response.corpus_id });
+
+                console.log("TRANSCRIBING");
+                let transcribeButton = create_btn();
+                transcribeButton.animate([
+                  // keyframes
+                  { transform: 'rotate(0deg)' },
+                  { transform: 'rotate(360deg)' }
+                ], {
+                  // timing options
+                  duration: 1000,
+                  iterations: Infinity
+                });
+              });
+              let interval_id = setInterval(function () {
+                let resRecv = query_transcript();
+                if (resRecv !== 0) {
+                  clearInterval(interval_id);
+                  console.log("DONE TRANSCRIBING");
+                }
+              }, 2000);
+            } else if (this.status === 502 || this.status === 500 || this.status === 503 || this.status === 504) {
+              console.log(xhttp);
               let transcribeButton = create_btn();
               transcribeButton.animate([
                 // keyframes
-                { transform: 'rotate(0deg)' },
-                { transform: 'rotate(360deg)' }
+                { transform: 'translateY(10px)' },
+                { transform: 'translateY(0px)' },
+                { transform: 'translateY(10px)' },
+                { transform: 'translateY(0px)' },
+                { transform: 'translateY(10px)' }
               ], {
                 // timing options
                 duration: 1000,
                 iterations: Infinity
               });
-            });
-            let interval_id = setInterval(function () {
-              let resRecv = query_transcript();
-              if (resRecv !== 0) {
-                clearInterval(interval_id);
-                console.log("DONE TRANSCRIBING");
-              }
-            }, 2000);
-          } else if (this.status == 502 || this.status == 500 || this.status == 503 || this.status == 504) {
-            console.log(xhttp);
-            let transcribeButton = create_btn();
-            transcribeButton.animate([
-              // keyframes
-              { transform: 'translateY(10px)' },
-              { transform: 'translateY(0px)' },
-              { transform: 'translateY(10px)' },
-              { transform: 'translateY(0px)' },
-              { transform: 'translateY(10px)' }
-            ], {
-              // timing options
-              duration: 1000,
-              iterations: Infinity
-            });
-          }
-        };
+            }
+          };
+          let transcribeButton = create_btn();
+          xhttp.upload.addEventListener('progress', function (evt) {
+            if (evt.lengthComputable) {
+              transcribeButton.style.background = "";
+              transcribeButton.style.backgroundColor = "#0F89D2";
+              transcribeButton.innerText = Math.floor(100 * evt.loaded / evt.total).toString() + "%";
+            }
+          });
+          xhttp.upload.addEventListener('load', function (evt) {
+            if (evt.lengthComputable) {
+              transcribeButton.style.background = Content.get_btn_background();
+              transcribeButton.style.backgroundColor = "#0F89D2";
+              transcribeButton.innerText = "";
+            }
+          });
 
-        let transcribeButton = create_btn();
-        let url = SERVER_URL + "/transcribe_file";
-        // xhttp.open("POST", url, true); // TODO : Sync
-        xhttp.open("POST", url);
-        xhttp.upload.addEventListener('progress', function (evt) {
-          if (evt.lengthComputable) {
-            transcribeButton.style.background = "";
-            transcribeButton.style.backgroundColor = "#0F89D2";
-            transcribeButton.innerText = Math.floor(100 * evt.loaded / evt.total).toString() + "%";
-          }
-        });
-        xhttp.upload.addEventListener('load', function (evt) {
-          if (evt.lengthComputable) {
-            transcribeButton.style.background = Content.get_btn_background();
-            transcribeButton.style.backgroundColor = "#0F89D2";
-            transcribeButton.innerText = "";
-          }
-        });
-
-        xhttp.setRequestHeader("Content-Type", "video/mp4");
-        xhttp.send(bytes);
+          let url = SERVER_URL + "/transcribe_file";
+          xhttp.open("POST", url, true); // TODO : Sync
+          // xhttp.open("POST", url);
+          // xhttp.setRequestHeader("Content-Type", "video/mp4");
+          xhttp.setRequestHeader("Content-Type", "application/octet-stream");
+          console.log("Sending to server!");
+          xhttp.send(bytes);
+        }
       });
   }
 
@@ -230,8 +261,8 @@ class Content extends React.Component {
 
     let url = new URL(SERVER_URL + "/get_transcript");
     url.searchParams.set("corpus_id", this.state.corpus_id);
-    var oReq = new XMLHttpRequest();
-    var complete = 0;
+    const oReq = new XMLHttpRequest();
+    let complete = 0;
     oReq.onload = function () {
       if (oReq.readyState === 4) {
         if (oReq.status === 200) {
@@ -247,7 +278,7 @@ class Content extends React.Component {
         }
       }
     };
-    oReq.open("GET", url, false);
+    oReq.open("GET", url.toString(), false);
     oReq.send();
 
     return complete;
@@ -274,13 +305,14 @@ class Content extends React.Component {
     let currentWordCount = 0;
 
     sentences.forEach(function (sentence) {
+      // noinspection JSUnresolvedVariable
       let words = sentence.words;
 
       currentWordCount += words.length;
       //currentWordCount += 5;
 
       words.forEach(function (word) {
-        let word_box = undefined;
+        let word_box;
         let timestamp = word.timestamp;
         if (timestamp >= 0) {
           word_box = document.createElement("a");
@@ -332,13 +364,11 @@ class Content extends React.Component {
     document.getElementById('transcribingMarker').textContent = 'doneTranscribing';
   }
 
-  clear_media() {
-    this.setState({ currentJob: null });
-  }
-
   processVideo() {
+    // noinspection JSUnresolvedVariable
     chrome.storage.local.remove(["key"], function () {
-      var error = chrome.runtime.lastError;
+      // noinspection JSUnresolvedVariable
+      const error = chrome.runtime.lastError;
       if (error) {
         console.error(error);
       }
@@ -358,11 +388,12 @@ class Content extends React.Component {
     // document.addEventListener("DOMContentLoaded", function() {});
 
     window.addEventListener("load", () => {
+      // noinspection JSUnresolvedVariable
       chrome.storage.local.set({ key: null }, function () {
         console.log("key is cleared!");
       });
       //let iter_count = 0;
-      var processVideo = this.processVideo;
+      const processVideo = this.processVideo;
       let interval_ID = setInterval(function () {
         let vid_elem = lookForVideo();
         if (vid_elem !== false) {
@@ -384,7 +415,7 @@ class Content extends React.Component {
     }, false);
 
     return (
-      <div></div>
+      <div/>
     );
   }
 }
