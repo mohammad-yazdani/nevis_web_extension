@@ -1,6 +1,6 @@
 {
   "name": "Nevis Web Extension",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "manifest_version": 2,
   "description": "The web interface to transcribe speech with Nevis!",
   "icons": {

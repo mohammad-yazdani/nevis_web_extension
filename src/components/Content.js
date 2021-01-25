@@ -166,9 +166,11 @@ class Content extends React.Component {
 
     fetch(media_path)
       .then((res) => res.blob())
-      .then((blob) => blob.arrayBuffer())
-      .then((bytes) => {
-        console.log(bytes);
+      .then((blob) => {
+        /*blob.arrayBuffer()
+      })
+      .then((bytes) => {*/
+        console.log(blob);
 
         let use_ws = false;
         if (use_ws) {
@@ -178,7 +180,7 @@ class Content extends React.Component {
             console.log("connected");
             // socket.emit('client_connected', { data:"testsend" } );
             sock.binaryType = 'arraybuffer';
-            sock.emit('client_connected', bytes);
+            sock.emit('client_connected', blob);
           });
           sock.on('update',function(data){
             console.log(data);
@@ -250,7 +252,7 @@ class Content extends React.Component {
           // xhttp.setRequestHeader("Content-Type", "video/mp4");
           xhttp.setRequestHeader("Content-Type", "application/octet-stream");
           console.log("Sending to server!");
-          xhttp.send(bytes);
+          xhttp.send(blob);
         }
       });
   }
